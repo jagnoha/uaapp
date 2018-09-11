@@ -55,7 +55,7 @@ class LocationValueItem extends Component {
   constructor(props){
     super(props);
     this.state = {
-      value: props.defaultLocationId ? this.getLocationValue(this.props.defaultLocationId, locations) : '',
+      value: props.defaultLocationCode ? this.getLocationValue(this.props.defaultLocationCode, this.props.locationsMap) : '',
       suggestions: []
     };
     
@@ -75,25 +75,37 @@ class LocationValueItem extends Component {
     )) || {id: '', value: value};
   };
   
+
+  onBlur = (event, { newValue }) => {
+    console.log(this.state.value);
+    console.log(this.getIdFromValue(this.state.value, this.props.locationsMap).id);
+    
+    if (this.getIdFromValue(this.state.value, this.props.locationsMap).id === ''){
+      this.props.addLocationItemMap(this.state.value);
+      this.props.changeLocationValues(this.props.locationId, this.getIdFromValue(this.state.value, this.props.locationsMap).id);  
+    }
+    
+  };
+
   onChange = (event, { newValue }) => {
     this.setState({
       value: newValue
     });
     console.log(newValue);
-    console.log(this.getIdFromValue(newValue, locations));
-    this.props.changeLocationValue(this.props.id, this.getIdFromValue(newValue, locations));
+    console.log(this.getIdFromValue(newValue, this.props.locationsMap));
+    this.props.changeLocationValues(this.props.locationId, this.getIdFromValue(newValue, this.props.locationsMap).id);
   };
   
   // Autosuggest will call this function every time you need to update suggestions.
   // You already implemented this logic above, so just use it.
   onSuggestionsFetchRequested = ({ value }) => {
-    this.setState({
+      this.setState({
       suggestions: getSuggestions(value)
     });
   };
 
   // Autosuggest will call this function every time you need to clear suggestions.
-  onSuggestionsClearRequested = () => {
+  onSuggestionsClearRequested = () => {    
     this.setState({
       suggestions: []
     });
@@ -107,7 +119,8 @@ class LocationValueItem extends Component {
     const inputProps = {
       placeholder: 'Location',
       value,
-      onChange: this.onChange
+      onChange: this.onChange,
+      onBlur: this.onBlur
     };
 
     return (
@@ -144,11 +157,15 @@ class LocationItem extends Component {
   render(){
     const locationId = this.props.locationId;
     const quantity = this.props.quantity;
+    const locationCode = this.props.locationCode;
 
     return (
       <div>
-        <LocationValueItem id={this.props.locationKey} defaultLocationId = {locationId} changeLocationValue = {this.props.changeLocationValue} />
-        <LocationQtyItem id={this.props.locationKey} quantity = {quantity} />
+        <LocationValueItem locationId={locationId} defaultLocationCode = {locationCode} 
+          changeLocationValues = {this.props.changeLocationValues} locationsMap = {this.props.locationsMap}
+          addLocationItemMap = {this.props.addLocationItemMap} />
+        
+        <LocationQtyItem locationId={locationId} quantity = {quantity} />
       </div>
     )
   }
@@ -159,9 +176,10 @@ class LocationList extends Component {
   render(){
     const listOfLocations = this.props.list;
     
-    const renderLocation = listOfLocations.map((item, index) =>
-      <LocationItem key={index} locationKey={index} locationId = {item.id} quantity = {item.quantity} 
-      changeLocationValue = {this.props.changeLocationValue} />
+    const renderLocation = listOfLocations.map((item) =>
+      <LocationItem key={item.id} locationId = {item.id} locationCode = {item.code} quantity = {item.quantity} 
+      changeLocationValues = {this.props.changeLocationValues} locationsMap = {this.props.locationsMap}
+      addLocationItemMap = {this.props.addLocationItemMap} />
     );
 
 
@@ -174,7 +192,7 @@ class LocationList extends Component {
 }
 
 const myLocations = [
-  {id: '3', quantity: '2'}, {id: '1', quantity: '1'}, {id: '4', quantity: '1'}
+  {id: '0', code: '3', quantity: '2'}, {id: '1', code: '1', quantity: '1'}, {id: '2', code: '4', quantity: '1'}
 ];
 
 //const myLocations = [];
@@ -201,30 +219,46 @@ class ListingForm extends Component {
   constructor(props){
     super(props);
     this.state = {
-      locations: this.props.list
+      locations: this.props.list,
+      locationsMap: this.props.locationsMap
     };
-    this.changeLocationValue = this.changeLocationValue.bind(this);
+    this.changeLocationValues = this.changeLocationValues.bind(this);
+    this.addLocationItemMap = this.addLocationItemMap.bind(this);
   }
   
-  changeLocationValue(locationPos, newValue){
-    let tempList = this.state.locations;
-    tempList[locationPos] = { id: newValue, quantity: tempList[locationPos].quantity };
-    const newList = tempList;
-    
-    this.setState(
-      {
-        locations: newList
-      }
-    );
+  addLocationItemMap(newValue){
+    let newList = this.state.locationsMap;
+    const lastItem = newList.slice(-1)[0]
+    const newId = String(Number(lastItem.id)+1);
+    newList.push({id: newId, value: newValue });
+    return newId; 
   }
-
+  
+  changeLocationValues(locationId, newValue, newQty){
+    let newList = [];
+    for (let item of this.state.locations){
+      if (item.id === locationId){
+        newList.push({id: item.id, code: (newValue || ''), quantity: (newQty || item.quantity)});
+      } else {
+        newList.push({id: item.id, code: item.code, quantity: item.quantity});
+      }
+      console.log(newList);
+      console.log(locations);
+    }
+    
+    this.setState({
+      locations: newList
+    })
+  }
+  
   render(){
     
     return (
       <div>
         <h1>Location List</h1>
         <form>
-          <LocationList list = {this.state.locations} changeLocationValue = {this.changeLocationValue} />
+          <LocationList list = {this.state.locations} changeLocationValues = {this.changeLocationValues} 
+          locationsMap = {this.state.locationsMap} addLocationItemMap = {this.addLocationItemMap} />
           <TotalListingQty list = {this.state.locations} />
         </form>
       </div>
@@ -237,7 +271,7 @@ class App extends Component {
     return (
       <div className="App">
         <h1>Listing Form</h1>
-        <ListingForm list = {myLocations} />
+        <ListingForm list = {myLocations} locationsMap = {locations} />
       </div>
     );
   }
