@@ -82,8 +82,10 @@ class LocationValueItem extends Component {
     
     if (this.getIdFromValue(this.state.value, this.props.locationsMap).id === ''){
       this.props.addLocationItemMap(this.state.value);
-      this.props.changeLocationValues(this.props.locationId, this.getIdFromValue(this.state.value, this.props.locationsMap).id);  
+      this.props.changeLocationValues(this.props.locationId, this.getIdFromValue(this.state.value, this.props.locationsMap).id, '');  
     }
+
+    
     
   };
 
@@ -93,7 +95,7 @@ class LocationValueItem extends Component {
     });
     console.log(newValue);
     console.log(this.getIdFromValue(newValue, this.props.locationsMap));
-    this.props.changeLocationValues(this.props.locationId, this.getIdFromValue(newValue, this.props.locationsMap).id);
+    this.props.changeLocationValues(this.props.locationId, this.getIdFromValue(newValue, this.props.locationsMap).id, '');
   };
   
   // Autosuggest will call this function every time you need to update suggestions.
@@ -140,13 +142,42 @@ class LocationValueItem extends Component {
 
 class LocationQtyItem extends Component {
 
+  constructor(props){
+    super(props);
+    this.state = {
+      quantity: this.props.quantity
+    }
+    this.changeQtyValue = this.changeQtyValue.bind(this);
+    this.makeChange = this.makeChange.bind(this);
+  }
+
+  makeChange(event){
+    console.log(event.target.value);
+    this.setState(
+      {
+        quantity: event.target.value
+      }
+    )
+    this.props.changeLocationValues(this.props.locationId, '', this.state.quantity);
+    
+    if (this.state.quantity === '0'){
+      this.props.deleteLocationItem(this.props.locationId);
+    }
+  }
+
+  changeQtyValue(event){
+    this.setState(
+      {
+        quantity: event.target.value
+      }
+    )
+  }
+
   render(){
-    
-    const quantity = this.props.quantity;
-    
+        
     return (
       <div>
-        <input type="name" value={quantity}></input>
+        <input type="name" value={this.state.quantity} onBlur = {this.makeChange} onChange = {this.changeQtyValue} ></input>
       </div>
     )
   }
@@ -163,9 +194,10 @@ class LocationItem extends Component {
       <div>
         <LocationValueItem locationId={locationId} defaultLocationCode = {locationCode} 
           changeLocationValues = {this.props.changeLocationValues} locationsMap = {this.props.locationsMap}
-          addLocationItemMap = {this.props.addLocationItemMap} />
+          addLocationItemMap = {this.props.addLocationItemMap} deleteLocationItem = {this.props.deleteLocationItem} />
         
-        <LocationQtyItem locationId={locationId} quantity = {quantity} />
+        <LocationQtyItem locationId={locationId} quantity = {quantity} deleteLocationItem = {this.props.deleteLocationItem}
+        changeLocationValues = {this.props.changeLocationValues} />
       </div>
     )
   }
@@ -179,7 +211,7 @@ class LocationList extends Component {
     const renderLocation = listOfLocations.map((item) =>
       <LocationItem key={item.id} locationId = {item.id} locationCode = {item.code} quantity = {item.quantity} 
       changeLocationValues = {this.props.changeLocationValues} locationsMap = {this.props.locationsMap}
-      addLocationItemMap = {this.props.addLocationItemMap} />
+      addLocationItemMap = {this.props.addLocationItemMap} deleteLocationItem = {this.props.deleteLocationItem} />
     );
 
 
@@ -191,11 +223,11 @@ class LocationList extends Component {
   }
 }
 
-const myLocations = [
+/*const myLocations = [
   {id: '0', code: '3', quantity: '2'}, {id: '1', code: '1', quantity: '1'}, {id: '2', code: '4', quantity: '1'}
-];
+];*/
 
-//const myLocations = [];
+const myLocations = [];
 
 function sumList(list){
   let total = 0;
@@ -219,36 +251,85 @@ class ListingForm extends Component {
   constructor(props){
     super(props);
     this.state = {
-      locations: this.props.list,
+      locations: this.props.list.length > 0 ? this.props.list : [{id: '0', code: '', quantity: '0'}],
       locationsMap: this.props.locationsMap
     };
     this.changeLocationValues = this.changeLocationValues.bind(this);
     this.addLocationItemMap = this.addLocationItemMap.bind(this);
+    this.deleteLocationItem = this.deleteLocationItem.bind(this);
   }
   
   addLocationItemMap(newValue){
     let newList = this.state.locationsMap;
     const lastItem = newList.slice(-1)[0]
     const newId = String(Number(lastItem.id)+1);
-    newList.push({id: newId, value: newValue });
+    
+    if (newValue !== ''){
+      newList.push({id: newId, value: newValue.toUpperCase() });
+    
+      this.setState(
+        {
+          locationsMap: newList
+        }
+      );
+    };
+
     return newId; 
   }
   
+  
+  
+  addLocationItem(){
+    let newList = this.state.locations;
+    const lastItem = newList.slice(-1)[0]
+    const newId = String(Number(lastItem.id)+1);
+    newList.push({id: newId, code: '', quantity: '1'}) 
+    this.setState(
+      {
+        locations: newList
+      }
+    )
+  }
+  
+  deleteLocationItem(locationId){
+    const newList = this.state.locations.filter(item =>
+      item.id !== locationId
+    );
+    
+    this.setState(
+      {
+        locations: newList.length > 0 ? newList : [{id: '0', code: '', quantity: '0'}]
+      }
+    );
+  
+  }
+
   changeLocationValues(locationId, newValue, newQty){
     let newList = [];
+    //console.log(newValue, newQty);
     for (let item of this.state.locations){
       if (item.id === locationId){
-        newList.push({id: item.id, code: (newValue || ''), quantity: (newQty || item.quantity)});
+        newList.push({id: item.id, code: (newValue !== '' ? newValue : item.code), quantity: (newQty !== '' ? newQty : item.quantity)});
       } else {
         newList.push({id: item.id, code: item.code, quantity: item.quantity});
       }
-      console.log(newList);
-      console.log(locations);
+      //console.log(newList);
+      //console.log(locations);
     }
-    
     this.setState({
       locations: newList
     })
+
+    console.log(newList);
+    const lastItem = newList.slice(-1);
+    //console.log(lastItem);
+    if (lastItem[0].code !== '' && Number(lastItem[0].quantity) > 0) {
+      newList.push({id: String((Number(lastItem[0].id) + 1)) , code: '', quantity: '0'});
+    }
+
+    /*this.setState({
+      locations: newList
+    })*/
   }
   
   render(){
@@ -258,7 +339,8 @@ class ListingForm extends Component {
         <h1>Location List</h1>
         <form>
           <LocationList list = {this.state.locations} changeLocationValues = {this.changeLocationValues} 
-          locationsMap = {this.state.locationsMap} addLocationItemMap = {this.addLocationItemMap} />
+          locationsMap = {this.state.locationsMap} addLocationItemMap = {this.addLocationItemMap}
+          deleteLocationItem = {this.deleteLocationItem} />
           <TotalListingQty list = {this.state.locations} />
         </form>
       </div>
